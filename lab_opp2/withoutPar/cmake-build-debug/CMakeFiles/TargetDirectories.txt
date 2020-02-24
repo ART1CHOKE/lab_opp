@@ -1,0 +1,3 @@
+/home/artysh/lab_opp/lab_opp2/withoutPar/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/artysh/lab_opp/lab_opp2/withoutPar/cmake-build-debug/CMakeFiles/withoutPar.dir
+/home/artysh/lab_opp/lab_opp2/withoutPar/cmake-build-debug/CMakeFiles/edit_cache.dir
