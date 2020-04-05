@@ -1,0 +1,1 @@
+/usr/bin/cc -g   CMakeFiles/WithP2.dir/main.c.o  -o WithP2 

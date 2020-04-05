@@ -1,0 +1,3 @@
+/home/artysh/lab_opp/lab_opp2/WithP1/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/artysh/lab_opp/lab_opp2/WithP1/cmake-build-debug/CMakeFiles/WithP1.dir
+/home/artysh/lab_opp/lab_opp2/WithP1/cmake-build-debug/CMakeFiles/edit_cache.dir
