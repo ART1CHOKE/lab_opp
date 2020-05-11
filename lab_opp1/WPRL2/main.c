@@ -7,37 +7,46 @@
 #define t 10e-6
 #define eps 10e-9
 
-static void ident(double *result, const double *A, int quantity_str) {
+static void ident(double *result, const double *A,const int quantity_str) {
     int i;
     for (i = 0; i < quantity_str; ++i) {
         result[i] = A[i];
     }
 }
 
-int sum_prev(const int *vector, int number_proccess) {
-    int i;
+int quan_str_get(const int number_proccess,const int size){
+    int quan_str = N / size;
+    int mod = N % size;
+    if (mod >= (number_proccess + 1)) {
+        quan_str++;
+    }
+    return quan_str;
+}
+
+int sum_prev(const int number_proccess,const int size) {
     int result = 0;
+    int i;
     for (i = 0; i < number_proccess; ++i) {
-        result += vector[i];
+        result += quan_str_get(i,size);
     }
     return result;
 }
 
-static void subVectorVector(double *result, const double *A, const double *B, int quantity_str) {
+static void subVectorVector(double *result, const double *A, const double *B,const int quantity_str) {
     int i;
     for (i = 0; i < quantity_str; ++i) {
         result[i] = A[i] - B[i];
     }
 }
 
-static void mulVectorT(double *result, int quantity_str) {
+static void mulVectorT(double *result,const int quantity_str) {
     int i;
     for (i = 0; i < quantity_str; ++i) {
         result[i] = t * result[i];
     }
 }
 
-static double norm2(const double *vector, int quantity_elements) {
+static double norm2(const double *vector,const int quantity_elements) {
     double result = 0.0;
     int i;
     for (i = 0; i < quantity_elements; ++i) {
@@ -66,70 +75,54 @@ int main(int argc, char **argv) {
     double sum;
     double start,end;
 
-    int *quan_str = (int *) malloc(size * sizeof(int));
-    if(quan_str==NULL){
-        fprintf(stderr,"malloc error quan_str %d\n",rank);
-        return EXIT_FAILURE;
-    }
+    int quan_str = quan_str_get(rank,size);
 
     int i,j,l;
 
-    for (i = 0; i < size; ++i) {
-        quan_str[i] = N / size;
-    }
-
-    int mod = N % size;
-
-    if (mod > 0) {
-        for (i = 0; mod > 0; ++i, mod--) {
-            quan_str[i]++;
-        }
-    }
-
     int check = 1;
 
-    double *A = (double *) malloc(sizeof(double) * N * quan_str[rank]);
+    double *A = (double *) malloc(sizeof(double) * N * quan_str);
     if(A==NULL){
         fprintf(stderr,"malloc error A %d\n",rank);
         return EXIT_FAILURE;
     }
 
-    double *b = (double *) malloc(sizeof(double) * quan_str[rank]);
+    double *b = (double *) malloc(sizeof(double) * quan_str);
     if(b==NULL){
         fprintf(stderr,"malloc error b %d\n",rank);
         return EXIT_FAILURE;
     }
 
-    double *x = (double *) malloc(sizeof(double) * quan_str[rank]);
+    double *x = (double *) malloc(sizeof(double) * quan_str);
     if(x==NULL){
         fprintf(stderr,"malloc error x %d\n",rank);
         return EXIT_FAILURE;
     }
 
-    double *temp = (double *) malloc(sizeof(double) * quan_str[0]);
+    double *temp = (double *) malloc(sizeof(double) * quan_str_get(0,size));
     if(temp==NULL){
         fprintf(stderr,"malloc error temp %d\n",rank);
         return EXIT_FAILURE;
     }
-    double *temp1 = (double *) malloc(sizeof(double) * quan_str[0]);
+    double *temp1 = (double *) malloc(sizeof(double) * quan_str_get(0,size));
     if(temp1==NULL){
         fprintf(stderr,"malloc error temp1 %d\n",rank);
         return EXIT_FAILURE;
     }
 
-    int sum_p = sum_prev(quan_str, rank);
+    int sum_p = sum_prev(rank,size);
 
-    for (i = 0; i < quan_str[rank]; i++) {
+    for (i = 0; i < quan_str; i++) {
         for (j = 0; j < N; j++) {
             if (sum_p + i == j) {
-                A[i * N + j] = 2;
+                A[i * N + j] = 2.0;
             } else {
-                A[i * N + j] = 1;
+                A[i * N + j] = 1.0;
             }
         }
     }
 
-    for (i = 0; i < quan_str[rank]; ++i) {
+    for (i = 0; i < quan_str; ++i) {
         b[i] = N + 1.0;
         temp[i] = x[i] = 0.0;
     }
@@ -138,31 +131,14 @@ int main(int argc, char **argv) {
         start=MPI_Wtime();
     }
 
-    subVectorVector(temp1, temp, b, quan_str[rank]);
+    subVectorVector(temp1, temp, b, quan_str);
 
     while (check != 0) {
         double partnorm = 0;
-        mulVectorT(temp1, quan_str[rank]);
-        subVectorVector(temp, x, temp1, quan_str[rank]);
+        mulVectorT(temp1, quan_str);
+        subVectorVector(temp, x, temp1, quan_str);
 
-        ident(x, temp, quan_str[rank]);
-
-        for (j = 0; j < size; ++j) {
-            if (j == rank) {
-                j++;
-                if (j == size) {
-                    break;
-                }
-            }
-            MPI_Send(x, quan_str[rank], MPI_DOUBLE, j, 1, MPI_COMM_WORLD);
-        }
-
-        for (i = 0; i < quan_str[rank]; ++i) {
-            for (l = 0; l < quan_str[rank]; ++l) {
-                temp[i] += A[i * N + l + sum_prev(quan_str, rank)] * x[l];
-            }
-        }
-
+        ident(x, temp, quan_str);
 
         for (j = 0; j < size; ++j) {
             if (j == rank) {
@@ -171,16 +147,34 @@ int main(int argc, char **argv) {
                     break;
                 }
             }
-            MPI_Recv(temp1, quan_str[j], MPI_DOUBLE, j, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            for (i = 0; i < quan_str[rank]; ++i) {
-                for (l = 0; l < quan_str[j]; ++l) {
-                    temp[i] += A[i * N + l + sum_prev(quan_str, j)] * temp1[l];
+            MPI_Send(x, quan_str, MPI_DOUBLE, j, 1, MPI_COMM_WORLD);
+        }
+
+        for (i = 0; i < quan_str; ++i) {
+            for (l = 0; l < quan_str; ++l) {
+                temp[i] += A[i * N + l + sum_prev(rank,size)] * x[l];
+            }
+        }
+
+
+        for (j = 0; j < size; ++j) {
+            if (j == rank) {
+                j++;
+                if (j == size) {
+                    break;
+                }
+            }
+            int quan_str_j=quan_str_get(j,size);
+            MPI_Recv(temp1, quan_str_j, MPI_DOUBLE, j, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            for (i = 0; i < quan_str; ++i) {
+                for (l = 0; l < quan_str_j; ++l) {
+                    temp[i] += A[i * N + l + sum_prev(j,size)] * temp1[l];
                 }
             }
         }
 
-        subVectorVector(temp1, temp, b, quan_str[rank]);
-        partnorm = norm2(temp1, quan_str[rank]);
+        subVectorVector(temp1, temp, b, quan_str);
+        partnorm = norm2(temp1, quan_str);
 
         MPI_Reduce(&partnorm, &sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
@@ -200,7 +194,7 @@ int main(int argc, char **argv) {
     }
 
 
-    /*for (i = 0; i < quan_str[rank]; ++i) {
+    /*for (i = 0; i < quan_str; ++i) {
         printf("%f\n", x[i]);
     }*/
 
@@ -208,7 +202,6 @@ int main(int argc, char **argv) {
     free(A);
     free(b);
     free(x);
-    free(quan_str);
     free(temp);
     free(temp1);
 
